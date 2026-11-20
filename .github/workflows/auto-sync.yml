@@ -1,12 +1,12 @@
-name: Auto Sync Storage DB and Post X Tips
+name: Post X Tips and Deploy Pages
+
+# 新商品の追加は週1回の Claude Code 定期実行が PR を作り、人がマージする。
+# このワークフローは「毎日のX投稿」と「GitHub Pages への公開」だけを行う。
 
 on:
   schedule:
-    # 毎週月曜 07:50 JST (日曜 22:50 UTC) に新商品探索・検証を実行（毎時0分の混雑回避）
-    - cron: '50 22 * * 0'
-    # 月曜以外の毎日 20:15 JST (11:15 UTC) にXへ実寸Tipsを自動投稿
-    # 月曜は 07:50 の探索回で投稿する（新商品が入った日はURL付き速報になる）ため、夜の回は外して1日1投稿にする
-    - cron: '15 11 * * 0,2-6'
+    # 毎日 20:15 JST (11:15 UTC) にXへ実寸Tipsを1件自動投稿（毎時0分の混雑回避）
+    - cron: '15 11 * * *'
   push:
     branches: [ main ]
     paths:
@@ -20,18 +20,20 @@ on:
         default: 'false'
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
   pages: write
   id-token: write
 
 jobs:
-  sync-and-post:
+  post-tip:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # 24時間前の products.json と比べて新商品を見つけるため履歴ごと取得する
+          fetch-depth: 0
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -39,27 +41,10 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install google-genai pydantic requests beautifulsoup4 requests-oauthlib
-
-      - name: Run Gemini discovery and deterministic HTML verification
-        if: github.event.schedule == '50 22 * * 0' || github.event_name == 'workflow_dispatch'
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
-          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
-        run: python scripts/discover_and_verify.py
-
-      - name: Commit verified updates or open quarantine PR
-        if: github.event.schedule == '50 22 * * 0' || github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash scripts/commit_or_pr.sh
+        run: pip install requests requests-oauthlib
 
       - name: Post daily millimeter tip to X with mandatory PR tag
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
@@ -73,8 +58,8 @@ jobs:
           fi
 
   deploy-pages:
-    needs: sync-and-post
-    if: always() && (github.event_name == 'push' || needs.sync-and-post.result == 'success')
+    # index.html / products.json が main に入ったときだけ公開する
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -82,8 +67,6 @@ jobs:
     steps:
       - name: Checkout latest main
         uses: actions/checkout@v4
-        with:
-          ref: main
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Collect public files only

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-X (旧Twitter) API v2 自動投稿スクリプト（2026年 Pay-Per-Use 課金最適化＋ステマ規制対策）
+X (旧Twitter) API v2 自動投稿スクリプト（AIを使わない文の型方式）
 
-- 通常日は URL を含まない実寸比較Tipsを投稿（$0.015 / 件）し、プロフィール固定リンクへ誘導する。
-- 新商品が検証ゲートを通過して追加された日（last_verified_items.json が存在する場合）のみ、
-  TOOL_PUBLIC_URL が設定されていれば URL 付きの速報投稿（$0.200 / 件）を行う。
-- 消費者庁ステマ規制に準拠するため、送信直前に Python コード側で `#PR` を強制付与して検証する。
+- 投稿文は products.json の数値だけから組み立てる。AIに書かせないので寸法を取り違えない。
+- 通常日は URL を含まない実寸Tips（$0.015 / 件）を投稿し、プロフィール固定リンクへ誘導する。
+- 直近24時間に products.json へ商品が追加されていれば、その商品の速報を
+  TOOL_PUBLIC_URL 付きで投稿する（$0.200 / 件）。
+- 消費者庁ステマ規制に準拠するため、送信直前に `#PR` を強制付与して検証する。
 """
 
 from __future__ import annotations
@@ -14,19 +15,26 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
+import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-from google import genai
 from requests_oauthlib import OAuth1
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 PRODUCTS_PATH = ROOT_DIR / "products.json"
-NEW_VERIFIED_PATH = ROOT_DIR / "last_verified_items.json"
 
 X_TWEETS_ENDPOINT = "https://api.x.com/2/tweets"
+JST = dt.timezone(dt.timedelta(hours=9))
+
+# 「ギリギリ入る/入らない」が話題になる組み合わせだけを選ぶための余裕の上限 (mm)
+MAX_RELEVANT_CLEARANCE_MM = 20.0
+NAME_MAX_CHARS = 30
+FOOTER_TIP = "数ミリ差の判定はプロフのリンクから無料で。"
+FOOTER_NEW = "収納判定ツールに追加しました。"
 
 
 def weighted_x_length(text: str) -> int:
@@ -43,11 +51,7 @@ def enforce_pr_and_length(body: str, url: Optional[str] = None) -> str:
     if "#PR" not in cleaned and "PR" not in cleaned.split():
         cleaned = f"{cleaned}\n#PR"
 
-    if url:
-        # XではURLはt.co短縮により一律23文字換算だが、安全のためそのまま追記して確認
-        candidate = f"{cleaned}\n{url}"
-    else:
-        candidate = cleaned
+    candidate = f"{cleaned}\n{url}" if url else cleaned
 
     if weighted_x_length(candidate) > 280:
         raise ValueError(
@@ -56,51 +60,141 @@ def enforce_pr_and_length(body: str, url: Optional[str] = None) -> str:
     return candidate
 
 
-def generate_tip_with_gemini(
-    item_presets: List[Dict[str, Any]],
-    storage_products: List[Dict[str, Any]],
-    new_items: List[Dict[str, Any]],
-    tool_url: Optional[str],
-) -> str:
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not api_key:
-        raise RuntimeError("環境変数 GEMINI_API_KEY が設定されていません。")
+def fmt_mm(value: float) -> str:
+    """66.0 → '66'、64.5 → '64.5' のように表記する。"""
+    return f"{value:.1f}".rstrip("0").rstrip(".")
 
-    client = genai.Client(api_key=api_key)
-    day_index = dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).timetuple().tm_yday
 
-    if new_items:
-        target = new_items[0]
-        mode_instruction = f"""
-新商品追加速報モード:
-今回新しく収納判定データベースに追加された以下の商品について、数ミリ単位の収納適性を伝える速報ポストを1本作成してください。
-商品データ: {json.dumps(target, ensure_ascii=False)}
-条件:
-- URLは後段のプログラムが自動付与するため、本文中にURLを含めないこと。
-- 110文字以内の日本語で、内寸（mm）の具体的なメリットまたは干渉注意点を1つ入れること。
-- ハッシュタグは末尾に #PR のみ（後段でも自動検証するため本文に含めてよい）。
-"""
-    else:
-        preset = item_presets[day_index % len(item_presets)]
-        sample_storage = storage_products[day_index % len(storage_products)]
-        mode_instruction = f"""
-通常Tipsモード（URLなし・$0.015節約モード）:
-以下の保護状態別アイテム外寸データと収納ケース内寸データをもとに、「数ミリの干渉で入らない失敗」を防ぐ実践的な豆知識ポストを1本作成してください。
-アイテム例: {json.dumps(preset, ensure_ascii=False)}
-収納ケース例: {json.dumps(sample_storage, ensure_ascii=False)}
-条件:
-- URLは絶対に含めないこと（プロフィール固定リンクの無料判定ツールへ誘導する表現にする）。
-- 115文字以内の日本語で、具体的なミリ数値（例: 幅66mm、高さ110mm等）を必ず1つ以上引用すること。
-- 誇大表現や価格断定は禁止。末尾に #PR を付けること。
-"""
+def short_name(product: Dict[str, Any]) -> str:
+    # 「（レギュラー 3個入）」のような括弧書きは省いて短くする
+    base = re.sub(r"\s*[（(].*$", "", product["name"]).strip() or product["name"]
+    name = f"{product['brand']} {base}"
+    return name if len(name) <= NAME_MAX_CHARS else name[: NAME_MAX_CHARS - 1] + "…"
 
-    response = client.models.generate_content(
-        model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
-        contents=mode_instruction,
+
+def prot_label(prot: Dict[str, Any]) -> str:
+    # 「公式キャラスリ1重 (66×92)」の寸法部分は本文で別に出すので省く
+    return re.sub(r"\s*[（(][^）)]*[）)]\s*$", "", prot["label"]).strip() or prot["label"]
+
+
+def clearances(product: Dict[str, Any], prot: Dict[str, Any]) -> Tuple[float, float, float]:
+    """立てて入れたときの余り (幅, 高さ, 奥行/厚み)。負なら不足。index.html と同じ判定。"""
+    return (
+        round(product["inner_w_mm"] - prot["w_mm"], 1),
+        round(product["inner_h_mm"] - prot["h_mm"], 1),
+        round(product["inner_d_mm"] - prot["d_mm"], 1),
     )
-    raw_text = (response.text or "").strip().strip('"').strip("'")
-    use_url = tool_url if (new_items and tool_url) else None
-    return enforce_pr_and_length(raw_text, url=use_url)
+
+
+def fits(product: Dict[str, Any], prot: Dict[str, Any]) -> bool:
+    return all(c >= 0 for c in clearances(product, prot))
+
+
+def fit_line(product: Dict[str, Any], prot: Dict[str, Any]) -> str:
+    cw, ch, cd = clearances(product, prot)
+    size = f"{fmt_mm(prot['w_mm'])}×{fmt_mm(prot['h_mm'])}mm"
+    if cw >= 0 and ch >= 0 and cd >= 0:
+        if cw == 0 and ch == 0:
+            return f"○ {prot_label(prot)} {size}（ぴったり）"
+        return f"○ {prot_label(prot)} {size}（余り 幅{fmt_mm(cw)}・高さ{fmt_mm(ch)}mm）"
+    shortages = []
+    if cw < 0:
+        shortages.append(f"幅{fmt_mm(-cw)}mm")
+    if ch < 0:
+        shortages.append(f"高さ{fmt_mm(-ch)}mm")
+    if cd < 0:
+        shortages.append(f"厚み{fmt_mm(-cd)}mm")
+    return f"× {prot_label(prot)} {size}（{'・'.join(shortages)}不足）"
+
+
+def border_lines(product: Dict[str, Any], preset: Dict[str, Any]) -> List[str]:
+    """入る中で一番大きい保護状態と、入らない中で一番小さい保護状態の2行（境目）を返す。"""
+    protections = sorted(preset["protections"], key=lambda p: (p["w_mm"] * p["h_mm"], p["d_mm"]))
+    fitting = [p for p in protections if fits(product, p)]
+    failing = [p for p in protections if not fits(product, p)]
+    lines = []
+    if fitting:
+        lines.append(fit_line(product, fitting[-1]))
+    if failing:
+        lines.append(fit_line(product, failing[0]))
+    return lines
+
+
+def relevant_pairs(
+    presets: List[Dict[str, Any]], products: List[Dict[str, Any]]
+) -> List[Tuple[Dict[str, Any], Dict[str, Any]]]:
+    """1つ以上の保護状態が入り、その余りが小さい（話題になる）商品と収納の組み合わせ。"""
+    pairs = []
+    for product in products:
+        for preset in presets:
+            fitting = [p for p in preset["protections"] if fits(product, p)]
+            if not fitting:
+                continue
+            tightest = max(fitting, key=lambda p: p["w_mm"] * p["h_mm"])
+            cw, ch, _ = clearances(product, tightest)
+            if cw <= MAX_RELEVANT_CLEARANCE_MM and ch <= MAX_RELEVANT_CLEARANCE_MM:
+                pairs.append((preset, product))
+    return pairs
+
+
+def compose(header: str, lines: List[str], footer: str, url: Optional[str]) -> str:
+    """文字数に収まるまで行を減らして本文を組み立てる。"""
+    for n in range(len(lines), -1, -1):
+        body = "\n".join([header, *lines[:n], footer])
+        try:
+            return enforce_pr_and_length(body, url=url)
+        except ValueError:
+            continue
+    raise ValueError(f"投稿文が文字数上限に収まりません: {header}")
+
+
+def build_tip_text(
+    presets: List[Dict[str, Any]], products: List[Dict[str, Any]], day_index: int
+) -> str:
+    pairs = relevant_pairs(presets, products)
+    if not pairs:
+        raise RuntimeError("投稿に使える商品と収納の組み合わせがありません。")
+    preset, product = pairs[day_index % len(pairs)]
+    header = (
+        f"【実寸メモ】{preset['short_name']}は{short_name(product)}に入る？\n"
+        f"内寸 {fmt_mm(product['inner_w_mm'])}×{fmt_mm(product['inner_h_mm'])}mm"
+    )
+    return compose(header, border_lines(product, preset), FOOTER_TIP, url=None)
+
+
+def build_new_item_text(
+    presets: List[Dict[str, Any]], product: Dict[str, Any], url: Optional[str]
+) -> str:
+    header = (
+        f"【新着】{short_name(product)}\n"
+        f"内寸 {fmt_mm(product['inner_w_mm'])}×{fmt_mm(product['inner_h_mm'])}"
+        f"×{fmt_mm(product['inner_d_mm'])}mm"
+    )
+    lines: List[str] = []
+    matched = [preset for preset, prod in relevant_pairs(presets, [product])]
+    if matched:
+        preset = matched[0]
+        lines = [f"{preset['short_name']}なら", *border_lines(product, preset)]
+    return compose(header, lines, FOOTER_NEW, url=url)
+
+
+def find_new_products(current: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """24時間前の main と比べて products.json に増えた商品を返す（毎日1回の実行で1度だけ拾う）。"""
+    try:
+        rev = subprocess.run(
+            ["git", "rev-list", "-1", "--before=24 hours ago", "HEAD"],
+            cwd=ROOT_DIR, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        if not rev:
+            return []
+        old_json = subprocess.run(
+            ["git", "show", f"{rev}:products.json"],
+            cwd=ROOT_DIR, capture_output=True, text=True, check=True, encoding="utf-8",
+        ).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []
+    old_ids = {p["id"] for p in json.loads(old_json).get("storage_products", [])}
+    return [p for p in current if p["id"] not in old_ids]
 
 
 def post_to_x(text: str) -> dict:
@@ -133,6 +227,12 @@ def main() -> int:
         action="store_true",
         help="Xへ実際に投稿せず、生成テキストと検証結果のみを表示する",
     )
+    parser.add_argument(
+        "--day-index",
+        type=int,
+        default=None,
+        help="Tipsの組み合わせを選ぶ番号（試験用。省略時は今日の通し日数）",
+    )
     args = parser.parse_args()
 
     if not PRODUCTS_PATH.exists():
@@ -140,17 +240,18 @@ def main() -> int:
         return 1
 
     master = json.loads(PRODUCTS_PATH.read_text(encoding="utf-8"))
-    new_items = []
-    if NEW_VERIFIED_PATH.exists():
-        new_items = json.loads(NEW_VERIFIED_PATH.read_text(encoding="utf-8"))
-
+    presets = master.get("item_presets", [])
+    products = master.get("storage_products", [])
     tool_url = os.getenv("TOOL_PUBLIC_URL", "").strip() or None
-    post_text = generate_tip_with_gemini(
-        master.get("item_presets", []),
-        master.get("storage_products", []),
-        new_items,
-        tool_url,
-    )
+
+    new_items = find_new_products(products)
+    if new_items and tool_url:
+        post_text = build_new_item_text(presets, new_items[0], tool_url)
+    else:
+        day_index = args.day_index
+        if day_index is None:
+            day_index = dt.datetime.now(JST).timetuple().tm_yday
+        post_text = build_tip_text(presets, products, day_index)
 
     print("=== 生成されたX投稿テキスト ===")
     print(post_text)
