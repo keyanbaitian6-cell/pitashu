@@ -1,0 +1,99 @@
+name: Auto Sync Storage DB and Post X Tips
+
+on:
+  schedule:
+    # 毎週月曜 07:50 JST (日曜 22:50 UTC) に新商品探索・検証を実行（毎時0分の混雑回避）
+    - cron: '50 22 * * 0'
+    # 月曜以外の毎日 20:15 JST (11:15 UTC) にXへ実寸Tipsを自動投稿
+    # 月曜は 07:50 の探索回で投稿する（新商品が入った日はURL付き速報になる）ため、夜の回は外して1日1投稿にする
+    - cron: '15 11 * * 0,2-6'
+  push:
+    branches: [ main ]
+    paths:
+      - 'index.html'
+      - 'products.json'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'X投稿をドライランにする場合は true'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+  pull-requests: write
+  pages: write
+  id-token: write
+
+jobs:
+  sync-and-post:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-genai pydantic requests beautifulsoup4 requests-oauthlib
+
+      - name: Run Gemini discovery and deterministic HTML verification
+        if: github.event.schedule == '50 22 * * 0' || github.event_name == 'workflow_dispatch'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+        run: python scripts/discover_and_verify.py
+
+      - name: Commit verified updates or open quarantine PR
+        if: github.event.schedule == '50 22 * * 0' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/commit_or_pr.sh
+
+      - name: Post daily millimeter tip to X with mandatory PR tag
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          TOOL_PUBLIC_URL: ${{ vars.TOOL_PUBLIC_URL }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python scripts/post_x_tip.py --dry-run
+          else
+            python scripts/post_x_tip.py
+          fi
+
+  deploy-pages:
+    needs: sync-and-post
+    if: always() && (github.event_name == 'push' || needs.sync-and-post.result == 'success')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Collect public files only
+        run: |
+          mkdir -p _site
+          cp index.html products.json _site/
+      - name: Upload static site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ピタ収（Pita-Shu）| トレカ・推し活グッズ 実寸ピッタリ収納判定ツール</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    input[type="range"] {
+      accent-color: #2563eb;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- 景品表示法（ステマ規制）準拠 PR明示バー ＆ 運営者JSON管理ボタン -->
+  <div class="bg-slate-900 text-slate-200 text-xs py-2 px-4 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-5xl mx-auto flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="bg-amber-400 text-slate-950 font-bold px-1.5 py-0.5 rounded text-[11px] leading-none">PR</span>
+        <span class="truncate">本ツールはプロモーション（アフィリエイト広告）を含みます</span>
+      </div>
+      <button id="btn-open-admin" type="button" class="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-100 px-2.5 py-1 rounded-md text-xs font-medium transition shrink-0">
+        <i data-lucide="database" class="w-3.5 h-3.5"></i>
+        <span>JSON・収益設定</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ヘッダー -->
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-5xl mx-auto px-4 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600 text-white font-bold text-sm shadow-sm">mm</span>
+          <h1 class="text-lg sm:text-xl font-bold tracking-tight text-slate-900">トレカ・推し活「実寸ピッタリ収納」判定機</h1>
+        </div>
+        <p class="text-xs sm:text-sm text-slate-600 mt-1">スリーブ・ローダー・鑑定スラブの「数ミリ干渉して閉まらない失敗」を3タップで事前回避</p>
+      </div>
+      <div class="flex items-center gap-2 self-start sm:self-auto">
+        <button id="btn-share-result" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition">
+          <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+          <span>診断結果をコピー</span>
+        </button>
+        <button id="btn-export-json" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>products.json</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ（スマホ1カラム / PC 12カラム2ペイン） -->
+  <main class="max-w-5xl w-full mx-auto px-4 py-5 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- 左ペイン：3タップ条件指定パネル -->
+    <section class="lg:col-span-5 space-y-4">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-5">
+        <!-- Step 1: カテゴリ切替タブ -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-blue-600">Step 1 · ジャンル選択</span>
+            <span id="current-outer-badge" class="text-xs font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full tabular-nums">外寸 63.0 × 88.0 × 0.35 mm</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl" role="tablist" aria-label="収納対象のジャンル">
+            <button type="button" data-cat="tcg" class="cat-tab py-2 px-2 rounded-lg text-xs font-bold transition bg-white text-slate-900 shadow-sm">トレカ・鑑定</button>
+            <button type="button" data-cat="oshi" class="cat-tab py-2 px-2 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900">チェキ・推し活</button>
+            <button type="button" data-cat="custom" class="cat-tab py-2 px-2 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900">1mm手動指定</button>
+          </div>
+        </div>
+
+        <!-- プリセット選択ゾーン（トレカ / 推し活モード時） -->
+        <div id="preset-controls" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2">Step 2 · 収納したいアイテム</label>
+            <div id="item-pills" class="grid grid-cols-2 gap-2"></div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2">Step 3 · スリーブ・ローダー保護状態</label>
+            <div id="protection-pills" class="flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+
+        <!-- 手動1mmカスタム指定ゾーン（カスタムモード時） -->
+        <div id="custom-controls" class="hidden space-y-3 pt-1">
+          <p class="text-xs text-slate-600">手元のアクスタ・特殊ローダー・特典ポストカード等の実測サイズ（外寸）をスライダーで指定してください。</p>
+          <div>
+            <div class="flex justify-between text-xs font-semibold mb-1">
+              <span>横幅 (W)</span>
+              <span id="lbl-custom-w" class="tabular-nums text-blue-700">73 mm</span>
+            </div>
+            <input id="sl-custom-w" type="range" min="45" max="160" step="1" value="73" class="w-full h-2 bg-slate-200 rounded-lg cursor-pointer">
+          </div>
+          <div>
+            <div class="flex justify-between text-xs font-semibold mb-1">
+              <span>高さ (H)</span>
+              <span id="lbl-custom-h" class="tabular-nums text-blue-700">110 mm</span>
+            </div>
+            <input id="sl-custom-h" type="range" min="50" max="175" step="1" value="110" class="w-full h-2 bg-slate-200 rounded-lg cursor-pointer">
+          </div>
+          <div>
+            <div class="flex justify-between text-xs font-semibold mb-1">
+              <span>1点あたりの厚み (D)</span>
+              <span id="lbl-custom-d" class="tabular-nums text-blue-700">7.5 mm</span>
+            </div>
+            <input id="sl-custom-d" type="range" min="0.5" max="45" step="0.5" value="7.5" class="w-full h-2 bg-slate-200 rounded-lg cursor-pointer">
+          </div>
+        </div>
+
+        <!-- 保管数量スライダー ＆ 用途絞り込み -->
+        <div class="pt-3 border-t border-slate-100 space-y-4">
+          <div>
+            <div class="flex items-center justify-between text-xs font-bold text-slate-700 mb-1.5">
+              <label for="sl-quantity">まとめて収納したい数量</label>
+              <span id="lbl-quantity" class="text-sm font-bold text-blue-700 tabular-nums">100 枚</span>
+            </div>
+            <input id="sl-quantity" type="range" min="1" max="1000" step="1" value="100" class="w-full h-2 bg-slate-200 rounded-lg cursor-pointer">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2">収納スタイル絞り込み</label>
+            <div id="purpose-pills" class="grid grid-cols-4 gap-1.5">
+              <button type="button" data-purpose="all" class="purpose-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-900 text-white transition">すべて</button>
+              <button type="button" data-purpose="portable" class="purpose-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">ファイル</button>
+              <button type="button" data-purpose="bulk" class="purpose-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">大容量箱</button>
+              <button type="button" data-purpose="moisture" class="purpose-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">防湿・飾る</button>
+            </div>
+          </div>
+
+          <label class="flex items-center justify-between gap-3 pt-1 cursor-pointer select-none">
+            <span class="text-xs font-medium text-slate-700">数ミリ干渉して入らないNGケースも警告表示</span>
+            <input id="chk-show-ng" type="checkbox" checked class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500">
+          </label>
+        </div>
+      </div>
+
+      <!-- 実寸2Dクリアランス図面ビューア -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <div>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">2D 実寸クリアランス図面</h2>
+            <p id="blueprint-title" class="text-sm font-bold text-slate-900 mt-0.5">読み込み中...</p>
+          </div>
+          <span id="blueprint-status" class="text-xs font-bold px-2.5 py-1 rounded-full shrink-0">--</span>
+        </div>
+        <div class="bg-slate-50 rounded-xl border border-slate-200/80 p-3 flex items-center justify-center">
+          <svg id="clearance-svg" viewBox="0 0 320 220" class="w-full max-w-full h-52"></svg>
+        </div>
+        <p id="blueprint-caption" class="text-xs text-slate-600 mt-2.5 leading-relaxed"></p>
+      </div>
+    </section>
+
+    <!-- 右ペイン：適合ランキング＆アフィリエイト導線リスト -->
+    <section class="lg:col-span-7 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900">適合する収納アイテム判定結果</h2>
+          <p id="result-summary" class="text-xs text-slate-600 mt-0.5">--</p>
+        </div>
+        <span class="text-[11px] text-slate-500 hidden sm:inline">※実売価格・在庫は各ショップ遷移先でご確認ください</span>
+      </div>
+
+      <div id="results-list" class="space-y-3.5"></div>
+    </section>
+  </main>
+
+  <!-- フッター -->
+  <footer class="bg-white border-t border-slate-200 mt-8 py-5 px-4 text-xs text-slate-500">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <p>寸法データは各メーカー公表値（TOYGER・Ultimate Guard・河島製作所・ナカバヤシ・LIHIT LAB.・MAXWIN）に基づく試算値です。個体差やスリーブ厚により前後する場合があります。</p>
+      <p class="shrink-0">Powered by Static JSON Architecture (API Cost ¥0)</p>
+    </div>
+  </footer>
+
+  <!-- 運営者設定＆JSONインスペクタ モーダル -->
+  <div id="admin-modal" class="fixed inset-0 bg-slate-950/60 z-40 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-xl border border-slate-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">運営者モード：アフィリエイトID ＆ products.json 管理</h3>
+          <p class="text-xs text-slate-500 mt-0.5">自分のトラッキングIDの即時反映テストや、Geminiスケジュールで生成したJSON差分の読み込み検証ができます</p>
+        </div>
+        <button id="btn-close-admin" type="button" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition" aria-label="閉じる">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-5 flex-1">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="in-amz-tag" class="block text-xs font-bold text-slate-700 mb-1">Amazonアソシエイト・トラッキングID</label>
+            <input id="in-amz-tag" type="text" placeholder="例: yoursite-22" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label for="in-rakuten-id" class="block text-xs font-bold text-slate-700 mb-1">楽天アフィリエイトID（任意）</label>
+            <input id="in-rakuten-id" type="text" placeholder="例: 1a2b3c4d.5e6f7g8h" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="ta-json-editor" class="text-xs font-bold text-slate-700">products.json マスタデータ（直接編集してホットリロード可能）</label>
+            <button id="btn-reset-json" type="button" class="text-xs text-blue-600 hover:underline font-medium">初期データに戻す</button>
+          </div>
+          <textarea id="ta-json-editor" rows="11" class="w-full p-3 font-mono text-xs bg-slate-950 text-slate-100 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          <p id="json-error-msg" class="text-xs text-red-600 font-medium mt-1.5 hidden"></p>
+        </div>
+      </div>
+
+      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+        <button id="btn-cancel-admin" type="button" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-200 transition">閉じる</button>
+        <button id="btn-apply-admin" type="button" class="px-4 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">設定とJSONを反映する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- トースト通知 -->
+  <div id="app-toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg z-50 hidden items-center gap-2">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+    <span id="app-toast-text">コピーしました</span>
+  </div>
+
+  <script>
+    const INITIAL_DATASET = {
+      schema_version: "1.0.0",
+      updated_at: "2026-11-18",
+      item_presets: [
+        {
+          id: "reg_card",
+          category: "tcg",
+          name: "レギュラーカード（ポケカ・ワンピ・MTG）",
+          short_name: "ポケカ・レギュラー",
+          default_qty: 100,
+          max_qty: 2000,
+          unit: "枚",
+          source_url: "https://www.biccamera.com/bc/item/5399239/",
+          protections: [
+            { id: "bare", label: "裸カードのまま", w_mm: 63.0, h_mm: 88.0, d_mm: 0.35 },
+            { id: "inner", label: "ジャスト1重スリーブ", w_mm: 64.5, h_mm: 89.5, d_mm: 0.50 },
+            { id: "official", label: "公式キャラスリ1重 (66×92)", w_mm: 66.0, h_mm: 92.0, d_mm: 0.65 },
+            { id: "double", label: "2重オーバースリーブ", w_mm: 68.5, h_mm: 93.5, d_mm: 0.90 },
+            { id: "fps_r", label: "フルプロテクトスリーブR", w_mm: 71.0, h_mm: 96.0, d_mm: 3.00 },
+            { id: "mag_35pt", label: "35pt マグネットローダー", w_mm: 73.0, h_mm: 110.0, d_mm: 7.50 }
+          ]
+        },
+        {
+          id: "mini_card",
+          category: "tcg",
+          name: "ミニサイズカード（遊戯王・ヴァンガード等）",
+          short_name: "遊戯王・ミニ",
+          default_qty: 100,
+          max_qty: 2000,
+          unit: "枚",
+          source_url: "https://www.fukuro.in/page/1163",
+          protections: [
+            { id: "bare_mini", label: "裸カード (59×86)", w_mm: 59.0, h_mm: 86.0, d_mm: 0.35 },
+            { id: "double_mini", label: "ミニ2重スリーブ (62×89)", w_mm: 62.0, h_mm: 89.0, d_mm: 0.80 },
+            { id: "fps_s", label: "フルプロテクトスリーブS", w_mm: 68.0, h_mm: 95.0, d_mm: 3.00 },
+            { id: "mag_35pt_mini", label: "35pt マグネットローダー", w_mm: 73.0, h_mm: 110.0, d_mm: 7.50 }
+          ]
+        },
+        {
+          id: "psa_slab",
+          category: "tcg",
+          name: "PSA鑑定ケース（スラブ）",
+          short_name: "PSA鑑定スラブ",
+          default_qty: 20,
+          max_qty: 150,
+          unit: "枚",
+          source_url: "https://maxwin.jp/item/tcg-fra04/",
+          protections: [
+            { id: "bare_slab", label: "スラブ単体 (81×136)", w_mm: 81.0, h_mm: 136.0, d_mm: 6.50 },
+            { id: "opp_slab", label: "OPP保護袋入り (83×138)", w_mm: 83.0, h_mm: 138.0, d_mm: 7.00 }
+          ]
+        },
+        {
+          id: "booster_box",
+          category: "tcg",
+          name: "未開封拡張パックBOX（レギュラー正方形型）",
+          short_name: "未開封パックBOX",
+          default_qty: 3,
+          max_qty: 20,
+          unit: "箱",
+          source_url: "https://www.biccamera.com/bc/item/12215595/",
+          protections: [
+            { id: "shrink_box", label: "シュリンク付BOX単体", w_mm: 140.0, h_mm: 140.0, d_mm: 36.0 },
+            { id: "hard_box", label: "フルプロテクトBOX入", w_mm: 150.0, h_mm: 150.0, d_mm: 40.0 }
+          ]
+        },
+        {
+          id: "cheki",
+          category: "oshi",
+          name: "チェキ（instax mini）・ぱしゃこれ",
+          short_name: "チェキ",
+          default_qty: 60,
+          max_qty: 500,
+          unit: "枚",
+          source_url: "https://www.fukuro.in/page/1163",
+          protections: [
+            { id: "cheki_bare", label: "チェキそのまま (54×86)", w_mm: 54.0, h_mm: 86.0, d_mm: 0.60 },
+            { id: "cheki_sleeve", label: "ぴったりスリーブ入 (57×89)", w_mm: 57.0, h_mm: 89.0, d_mm: 0.80 }
+          ]
+        },
+        {
+          id: "bromide_l",
+          category: "oshi",
+          name: "L判ブロマイド・生写真",
+          short_name: "L判ブロマイド",
+          default_qty: 50,
+          max_qty: 400,
+          unit: "枚",
+          source_url: "https://www.lihit-lab.com/info/2024/06/myfa_%EF%BC%93.html",
+          protections: [
+            { id: "l_bare", label: "生写真そのまま (89×127)", w_mm: 89.0, h_mm: 127.0, d_mm: 0.30 },
+            { id: "l_sleeve", label: "L判スリーブ入 (91×130)", w_mm: 91.0, h_mm: 130.0, d_mm: 0.50 }
+          ]
+        },
+        {
+          id: "square_photo",
+          category: "oshi",
+          name: "ましかくフォト（スクエア 89×89mm）",
+          short_name: "ましかくフォト",
+          default_qty: 40,
+          max_qty: 400,
+          unit: "枚",
+          source_url: "https://www.lihit-lab.com/info/2024/06/myfa_%EF%BC%93.html",
+          protections: [
+            { id: "sq_bare", label: "そのまま (89×89)", w_mm: 89.0, h_mm: 89.0, d_mm: 0.30 },
+            { id: "sq_sleeve", label: "スクエアスリーブ入 (91×91)", w_mm: 91.0, h_mm: 91.0, d_mm: 0.50 }
+          ]
+        },
+        {
+          id: "can_badge_57",
+          category: "oshi",
+          name: "推し活 丸型缶バッジ（定番57mm）",
+          short_name: "57mm缶バッジ",
+          default_qty: 12,
+          max_qty: 120,
+          unit: "個",
+          source_url: "https://store.lihit-lab.com/products/n-3351",
+          protections: [
+            { id: "badge_bare", label: "缶バッジ単体 (57×57×5)", w_mm: 57.0, h_mm: 57.0, d_mm: 5.00 },
+            { id: "badge_cover", label: "保護カバー装着 (60×60×6)", w_mm: 60.0, h_mm: 60.0, d_mm: 6.00 }
+          ]
+        }
+      ],
+      storage_products: [
+        {
+          id: "kawashima-fps-r",
+          brand: "河島製作所",
+          name: "TCG フルプロテクトスリーブ R（レギュラー 3個入）",
+          storage_type: "portable",
+          mode: "pocket",
+          inner_w_mm: 66.0,
+          inner_h_mm: 92.0,
+          inner_d_mm: 0.7,
+          slots_per_unit: 3,
+          allow_flat_lay: false,
+          msrp_note: "メーカー希望小売価格 ¥330（税込・3個入）",
+          features: ["UV85%カット", "ポリカーボネート硬質保護", "66×92mm公式スリーブ対応"],
+          official_url: "https://www.biccamera.com/bc/item/5399239/",
+          amazon_keyword: "河島製作所 フルプロテクトスリーブ レギュラー FPSR-3",
+          rakuten_keyword: "河島製作所 フルプロテクトスリーブ R"
+        },
+        {
+          id: "lihit-n3306",
+          brand: "LIHIT LAB. (myfa)",
+          name: "myfa コレクションポケット 9ポケット A4（N-3306 / 10枚組）",
+          storage_type: "portable",
+          mode: "pocket",
+          inner_w_mm: 72.0,
+          inner_h_mm: 101.0,
+          inner_d_mm: 1.5,
+          slots_per_unit: 90,
+          allow_flat_lay: false,
+          msrp_note: "公式オンライン価格 ¥539（税込・10枚90ポケット）",
+          features: ["高透明PPポケット", "2重スリーブも余裕の幅広72×101mm設計", "A4リングバインダー対応"],
+          official_url: "https://store.lihit-lab.com/products/n-3306",
+          amazon_keyword: "リヒトラブ myfa コレクションポケット 9ポケット N-3306",
+          rakuten_keyword: "リヒトラブ myfa N-3306"
+        },
+        {
+          id: "ug-arkhive-400",
+          brand: "Ultimate Guard",
+          name: "Arkhive 400+ Xenoskin（UGD011250）",
+          storage_type: "bulk",
+          mode: "lane",
+          inner_w_mm: 76.0,
+          inner_h_mm: 100.0,
+          inner_d_mm: 297.0,
+          lanes: 1,
+          allow_flat_lay: false,
+          msrp_note: "公式参考 €39.99（2重スリーブ約450枚収納）",
+          features: ["強力マグネット開閉", "マイクロファイバー内装", "フルプロテクトスリーブRも縦収納可能"],
+          official_url: "https://ultimateguard.com/en/Deck-Boxes/Arkhive-400-Xenoskin-Black/UGD011250/",
+          amazon_keyword: "Ultimate Guard Arkhive 400+ Xenoskin",
+          rakuten_keyword: "Ultimate Guard Arkhive 400+"
+        },
+        {
+          id: "ug-arkhive-800",
+          brand: "Ultimate Guard",
+          name: "Arkhive 800+ Xenoskin（UGD011255 / 2列構造）",
+          storage_type: "bulk",
+          mode: "lane",
+          inner_w_mm: 76.0,
+          inner_h_mm: 100.0,
+          inner_d_mm: 297.0,
+          lanes: 2,
+          allow_flat_lay: false,
+          msrp_note: "公式参考 €50.99（2重スリーブ約900枚収納）",
+          features: ["ZnapClawロック機構", "2列大容量ストレージ", "Boulder 100+デッキケース8個収納可"],
+          official_url: "https://ultimateguard.com/en/Deck-Boxes/Arkhive-800-Xenoskin-Black/UGD011255/",
+          amazon_keyword: "Ultimate Guard Arkhive 800+ Xenoskin",
+          rakuten_keyword: "Ultimate Guard Arkhive 800+"
+        },
+        {
+          id: "toyger-ceo-storage",
+          brand: "TOYGER",
+          name: "CEO Storage アルミ製アタッシュケース（5列超大容量）",
+          storage_type: "bulk",
+          mode: "lane",
+          inner_w_mm: 77.0,
+          inner_h_mm: 105.0,
+          inner_d_mm: 290.0,
+          lanes: 5,
+          allow_flat_lay: false,
+          msrp_note: "公式定価 ¥11,980（税込・裸カード約5,100枚）",
+          features: ["可動式仕切り15枚＆ラベル付", "フルプロテクトスリーブ対応（77×105mm内）", "35ptマグネットローダー(高110mm)は高さ干渉"],
+          official_url: "https://toyger.shop/products/4580645820301",
+          amazon_keyword: "TOYGER CEO Storage カード ストレージ",
+          rakuten_keyword: "TOYGER CEO Storage"
+        },
+        {
+          id: "spica-psa-attache",
+          brand: "SPICA",
+          name: "PSA鑑定・マグネットローダー対応 3列アルミアタッシュケース",
+          storage_type: "bulk",
+          mode: "lane",
+          inner_w_mm: 85.0,
+          inner_h_mm: 142.0,
+          inner_d_mm: 210.0,
+          lanes: 3,
+          allow_flat_lay: false,
+          msrp_note: "PSA・BGS・ARS最大105枚収納設計",
+          features: ["OPP袋入りPSAスラブも縦置き3列収納", "35ptマグネットローダー大量保管対応", "防塵・強化アルミフレーム"],
+          official_url: "https://store.shopping.yahoo.co.jp/spica-style/psa-attache/free-space/",
+          amazon_keyword: "PSA 収納 アタッシュケース 3列 105枚",
+          rakuten_keyword: "SPICA アタッシュケース PSA"
+        },
+        {
+          id: "nakabayashi-db8l",
+          brand: "ナカバヤシ",
+          name: "キャパティ ドライボックス 8L（DB-8L / 湿度計・乾燥剤付）",
+          storage_type: "moisture",
+          mode: "box",
+          inner_w_mm: 155.0,
+          inner_h_mm: 170.0,
+          inner_d_mm: 260.0,
+          lanes: 1,
+          allow_flat_lay: true,
+          msrp_note: "省スペース防湿庫（約8L・パッキン密閉式）",
+          features: ["内寸高170mmでPSAスラブ・マグネットローダー・未開封BOXすべて縦置き可", "アナログ湿度計＆再生可能乾燥剤付属"],
+          official_url: "https://jp.misumi-ec.com/vona2/detail/223301117820/",
+          amazon_keyword: "ナカバヤシ キャパティ ドライボックス 8L DB-8L",
+          rakuten_keyword: "ナカバヤシ キャパティ ドライボックス 8L"
+        },
+        {
+          id: "nakabayashi-db11l",
+          brand: "ナカバヤシ",
+          name: "キャパティ ドライボックス 11L（DB-11L / 薄型ワイド防湿庫）",
+          storage_type: "moisture",
+          mode: "box",
+          inner_w_mm: 251.0,
+          inner_h_mm: 100.0,
+          inner_d_mm: 403.0,
+          lanes: 2,
+          allow_flat_lay: true,
+          msrp_note: "参考基準価格 ¥4,240（税別・約11L薄型）",
+          features: ["棚下に入れやすい薄型H100mm", "PSAスラブや未開封BOXは横寝かせ・平置き防湿に対応", "DB-27Lとスタッキング可能"],
+          official_url: "https://www.monotaro.com/g/00177111/",
+          amazon_keyword: "ナカバヤシ キャパティ ドライボックス 11L DB-11L",
+          rakuten_keyword: "ナカバヤシ キャパティ ドライボックス 11L"
+        },
+        {
+          id: "nakabayashi-db27l",
+          brand: "ナカバヤシ",
+          name: "キャパティ ドライボックス 27L（DB-27L / 大容量防湿庫）",
+          storage_type: "moisture",
+          mode: "box",
+          inner_w_mm: 250.0,
+          inner_h_mm: 235.0,
+          inner_d_mm: 410.0,
+          lanes: 2,
+          allow_flat_lay: true,
+          msrp_note: "参考基準価格 ¥5,000（税別・約27L大容量）",
+          features: ["内寸高235mmで未開封BOX複数箱・PSAスラブ大量防湿に最適", "湿度計・乾燥剤・トレー付属"],
+          official_url: "https://www.monotaro.com/g/00177111/",
+          amazon_keyword: "ナカバヤシ キャパティ ドライボックス 27L DB-27L",
+          rakuten_keyword: "ナカバヤシ キャパティ ドライボックス 27L"
+        },
+        {
+          id: "kawashima-fpbox-r",
+          brand: "河島製作所",
+          name: "フルプロテクトボックス R（未開封レギュラーBOX専用ハードケース）",
+          storage_type: "moisture",
+          mode: "pocket",
+          inner_w_mm: 143.0,
+          inner_h_mm: 143.0,
+          inner_d_mm: 39.0,
+          slots_per_unit: 1,
+          allow_flat_lay: false,
+          msrp_note: "メーカー希望小売価格 ¥2,420（税込・1箱用）",
+          features: ["シュリンク付レギュラーBOX（約140×140×36mm）を+3mm余裕で保護", "ポリカーボネート製UV保護ディスプレイ"],
+          official_url: "https://www.biccamera.com/bc/item/12215595/",
+          amazon_keyword: "河島製作所 フルプロテクトボックス レギュラー FPBOX-R",
+          rakuten_keyword: "河島製作所 フルプロテクトボックス R"
+        },
+        {
+          id: "maxwin-tcg-fra04",
+          brand: "MAXWIN",
+          name: "PSA鑑定カード専用 4連アクリルコレクションフレーム（TCG-FRA04）",
+          storage_type: "moisture",
+          mode: "pocket",
+          inner_w_mm: 81.5,
+          inner_h_mm: 136.5,
+          inner_d_mm: 8.0,
+          slots_per_unit: 4,
+          allow_flat_lay: false,
+          msrp_note: "PSAケース4枚展示アクリルフレーム（外寸536×207mm）",
+          features: ["PSA鑑定ラベルまで隠れず飾れるジャスト設計", "高透明アクリルパネル・スライド金具式"],
+          official_url: "https://maxwin.jp/item/tcg-fra04/",
+          amazon_keyword: "MAXWIN PSA アクリル フレーム TCG-FRA04",
+          rakuten_keyword: "MAXWIN TCG-FRA04"
+        },
+        {
+          id: "lihit-n3325",
+          brand: "LIHIT LAB. (myfa)",
+          name: "myfa インスタントフォトコレクションファイル（N-3325 / チェキ216枚）",
+          storage_type: "portable",
+          mode: "pocket",
+          inner_w_mm: 60.0,
+          inner_h_mm: 93.0,
+          inner_d_mm: 1.0,
+          slots_per_unit: 216,
+          allow_flat_lay: false,
+          msrp_note: "公式オンライン価格 ¥770（税込・216枚収容）",
+          features: ["チェキ（54×86mm）をスリーブに入れたまま216枚収納", "抜け落ち防止フラップ＆表紙飾り窓ポケット付"],
+          official_url: "https://store.lihit-lab.com/products/n-3325",
+          amazon_keyword: "リヒトラブ myfa インスタントフォトコレクションファイル N-3325",
+          rakuten_keyword: "リヒトラブ myfa N-3325"
+        },
+        {
+          id: "lihit-n3327",
+          brand: "LIHIT LAB. (myfa)",
+          name: "myfa スクエアフォトコレクションファイル（N-3327 / ましかく252枚）",
+          storage_type: "portable",
+          mode: "pocket",
+          inner_w_mm: 93.0,
+          inner_h_mm: 93.0,
+          inner_d_mm: 1.0,
+          slots_per_unit: 252,
+          allow_flat_lay: false,
+          msrp_note: "メーカー希望小売価格 ¥990（税込・252枚収容）",
+          features: ["ましかくフォト（89×89mm）をスリーブごと収納できる93×93mmポケット", "サイドイン仕様で落下防止"],
+          official_url: "https://www.lihit-lab.com/info/2024/06/myfa_%EF%BC%93.html",
+          amazon_keyword: "リヒトラブ myfa スクエアフォトコレクションファイル N-3327",
+          rakuten_keyword: "リヒトラブ myfa N-3327"
+        },
+        {
+          id: "lihit-n3329",
+          brand: "LIHIT LAB. (myfa)",
+          name: "myfa フォトコレクションファイル L判（N-3329 / 112枚）",
+          storage_type: "portable",
+          mode: "pocket",
+          inner_w_mm: 93.0,
+          inner_h_mm: 134.0,
+          inner_d_mm: 1.0,
+          slots_per_unit: 112,
+          allow_flat_lay: false,
+          msrp_note: "公式オンライン価格 ¥770（税込・112枚収容）",
+          features: ["L判ブロマイド（89×127mm）をスリーブ入りで余裕収納", "抜け落ち防止フラップ＆高透明PP採用"],
+          official_url: "https://store.lihit-lab.com/products/n-3329",
+          amazon_keyword: "リヒトラブ myfa フォトコレクションファイル N-3329",
+          rakuten_keyword: "リヒトラブ myfa N-3329"
+        },
+        {
+          id: "lihit-n3351",
+          brand: "LIHIT LAB. (myfa)",
+          name: "myfa コレクションポケット PVC 6ポケット A5（N-3351 / 2枚組）",
+          storage_type: "portable",
+          mode: "pocket",
+          inner_w_mm: 67.0,
+          inner_h_mm: 72.0,
+          inner_d_mm: 8.0,
+          slots_per_unit: 12,
+          allow_flat_lay: false,
+          msrp_note: "公式オンライン価格 ¥825（税込・2枚12ポケット）",
+          features: ["肉厚PVC（0.3mm）で57mm缶バッジ（カバー付含む）やミニアクスタに対応", "飛び出し防止フラップ付"],
+          official_url: "https://store.lihit-lab.com/products/n-3351",
+          amazon_keyword: "リヒトラブ myfa コレクションポケット PVC 6ポケット N-3351",
+          rakuten_keyword: "リヒトラブ myfa N-3351"
+        }
+      ]
+    };
+
+    let dataset = JSON.parse(JSON.stringify(INITIAL_DATASET));
+
+    // 訪問者全員のリンクに付くアフィリエイトID（運営者が設定する）。
+    // 管理画面で入力した値はその端末のブラウザにしか保存されないため、ここに書かないと報酬が付かない。
+    const DEFAULT_AMAZON_TAG = "pokeadd-22";
+    const DEFAULT_RAKUTEN_ID = "";
+
+    const state = {
+      category: "tcg",
+      itemId: "reg_card",
+      protId: "mag_35pt",
+      customW: 73.0,
+      customH: 110.0,
+      customD: 7.5,
+      quantity: 60,
+      purpose: "all",
+      showNg: true,
+      inspectedProductId: null,
+      amazonTag: DEFAULT_AMAZON_TAG,
+      rakutenId: DEFAULT_RAKUTEN_ID
+    };
+
+    function loadSavedSettings() {
+      try {
+        const savedAmz = localStorage.getItem("pitashu_amz_tag");
+        const savedRak = localStorage.getItem("pitashu_rak_id");
+        if (savedAmz) state.amazonTag = savedAmz;
+        if (savedRak) state.rakutenId = savedRak;
+      } catch (e) {
+        // Ignore storage errors in restricted environments
+      }
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const cat = params.get("cat");
+        const item = params.get("item");
+        const prot = params.get("prot");
+        const qty = parseInt(params.get("qty") || "", 10);
+        if (cat === "tcg" || cat === "oshi" || cat === "custom") state.category = cat;
+        if (item && dataset.item_presets.some(p => p.id === item)) state.itemId = item;
+        const preset = getCurrentPreset();
+        if (prot && preset && preset.protections.some(pr => pr.id === prot)) {
+          state.protId = prot;
+        } else if (preset && preset.protections[0]) {
+          state.protId = preset.protections[0].id;
+        }
+        if (!isNaN(qty) && qty >= 1 && qty <= 2000) state.quantity = qty;
+      } catch (e) {
+        // Ignore URL parsing issues
+      }
+    }
+
+    function getCurrentPreset() {
+      return dataset.item_presets.find(p => p.id === state.itemId) || dataset.item_presets[0];
+    }
+
+    function getTargetOuterDimensions() {
+      if (state.category === "custom") {
+        return {
+          title: `カスタム指定 (${state.customW}×${state.customH}mm)`,
+          w: state.customW,
+          h: state.customH,
+          d: state.customD,
+          unit: "点"
+        };
+      }
+      const preset = getCurrentPreset();
+      const prot = preset.protections.find(p => p.id === state.protId) || preset.protections[0];
+      return {
+        title: `${preset.short_name}（${prot.label}）`,
+        w: prot.w_mm,
+        h: prot.h_mm,
+        d: prot.d_mm,
+        unit: preset.unit || "枚"
+      };
+    }
+
+    function evaluateProductFit(prod, target, qty) {
+      const clearW = +(prod.inner_w_mm - target.w).toFixed(1);
+      const clearH = +(prod.inner_h_mm - target.h).toFixed(1);
+      const clearD = +(prod.inner_d_mm - target.d).toFixed(1);
+
+      let fitsUpright = clearW >= 0 && clearH >= 0 && clearD >= 0;
+      let fitsFlat = false;
+      let flatClearA = 0;
+      let flatClearB = 0;
+
+      if (!fitsUpright && prod.allow_flat_lay) {
+        // Check horizontal flat-lay inside dry box: width & height lie on W x D floor, thickness stacks along H
+        const floorFit1 = prod.inner_w_mm >= target.w && prod.inner_d_mm >= target.h && prod.inner_h_mm >= target.d;
+        const floorFit2 = prod.inner_w_mm >= target.h && prod.inner_d_mm >= target.w && prod.inner_h_mm >= target.d;
+        if (floorFit1 || floorFit2) {
+          fitsFlat = true;
+          flatClearA = floorFit1 ? +(prod.inner_w_mm - target.w).toFixed(1) : +(prod.inner_w_mm - target.h).toFixed(1);
+          flatClearB = floorFit1 ? +(prod.inner_d_mm - target.h).toFixed(1) : +(prod.inner_d_mm - target.w).toFixed(1);
+        }
+      }
+
+      // Calculate capacity per unit
+      let maxItemsPerUnit = 1;
+      if (prod.mode === "pocket") {
+        maxItemsPerUnit = prod.slots_per_unit || 1;
+      } else if (prod.mode === "lane") {
+        const perLane = Math.max(1, Math.floor((prod.inner_d_mm * 0.92) / Math.max(0.35, target.d)));
+        maxItemsPerUnit = perLane * (prod.lanes || 1);
+      } else if (prod.mode === "box") {
+        if (fitsUpright) {
+          const cols = Math.max(1, Math.floor(prod.inner_w_mm / (target.w + 2)));
+          const perCol = Math.max(1, Math.floor((prod.inner_d_mm * 0.9) / Math.max(0.5, target.d)));
+          maxItemsPerUnit = cols * perCol;
+        } else if (fitsFlat) {
+          const stackPerPile = Math.max(1, Math.floor((prod.inner_h_mm * 0.9) / Math.max(0.5, target.d)));
+          const piles1 = Math.floor(prod.inner_w_mm / (target.w + 2)) * Math.floor(prod.inner_d_mm / (target.h + 2));
+          const piles2 = Math.floor(prod.inner_w_mm / (target.h + 2)) * Math.floor(prod.inner_d_mm / (target.w + 2));
+          maxItemsPerUnit = Math.max(1, Math.max(piles1, piles2) * stackPerPile);
+        }
+      }
+
+      const unitsNeeded = Math.max(1, Math.ceil(qty / maxItemsPerUnit));
+
+      // Score fit quality (lower positive clearance on pocket/lane = tighter "cinderella fit", without being too huge)
+      let status = "ng";
+      let badgeText = "サイズ超過（収納不可）";
+      let score = -1000 + Math.min(clearW, clearH, clearD);
+
+      if (fitsUpright) {
+        const minMargin = Math.min(clearW, clearH);
+        const maxMargin = Math.max(clearW, clearH);
+        if (prod.mode === "box") {
+          status = "good";
+          badgeText = "縦置き防湿OK";
+          score = 72 - Math.min(30, unitsNeeded * 3);
+        } else if (maxMargin <= 12 && minMargin >= 0) {
+          status = "perfect";
+          badgeText = "シンデレラフィット";
+          score = 100 - maxMargin - Math.min(20, (unitsNeeded - 1) * 2);
+        } else if (maxMargin <= 40) {
+          status = "good";
+          badgeText = "余裕あり収納OK";
+          score = 84 - maxMargin * 0.4 - Math.min(20, (unitsNeeded - 1) * 2);
+        } else {
+          status = "loose";
+          badgeText = "入るが余白大きめ";
+          score = 50 - maxMargin * 0.2;
+        }
+      } else if (fitsFlat) {
+        status = "flat";
+        badgeText = "横寝かせ・平置きOK";
+        score = 62 - Math.min(25, unitsNeeded * 3);
+      }
+
+      return {
+        product: prod,
+        fits: fitsUpright || fitsFlat,
+        fitsUpright,
+        fitsFlat,
+        clearW,
+        clearH,
+        clearD,
+        flatClearA,
+        flatClearB,
+        maxItemsPerUnit,
+        unitsNeeded,
+        status,
+        badgeText,
+        score
+      };
+    }
+
+    function buildAmazonUrl(keyword) {
+      const base = `https://www.amazon.co.jp/s?k=${encodeURIComponent(keyword)}`;
+      return state.amazonTag ? `${base}&tag=${encodeURIComponent(state.amazonTag)}` : base;
+    }
+
+    function buildRakutenUrl(keyword) {
+      const mallUrl = `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(keyword)}/`;
+      if (state.rakutenId) {
+        return `https://hb.afl.rakuten.co.jp/hgc/${encodeURIComponent(state.rakutenId)}/?pc=${encodeURIComponent(mallUrl)}`;
+      }
+      return mallUrl;
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function renderBlueprint(evalItem, target) {
+      const svg = document.getElementById("clearance-svg");
+      const titleEl = document.getElementById("blueprint-title");
+      const statusEl = document.getElementById("blueprint-status");
+      const capEl = document.getElementById("blueprint-caption");
+
+      if (!evalItem) {
+        titleEl.textContent = "該当する収納アイテムがありません";
+        statusEl.textContent = "--";
+        statusEl.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600";
+        svg.innerHTML = "";
+        capEl.textContent = "絞り込み条件を変更してください。";
+        return;
+      }
+
+      const prod = evalItem.product;
+      titleEl.textContent = `${prod.brand} ${prod.name}`;
+
+      if (evalItem.status === "perfect") {
+        statusEl.textContent = "シンデレラフィット";
+        statusEl.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800";
+      } else if (evalItem.status === "good" || evalItem.status === "loose") {
+        statusEl.textContent = evalItem.badgeText;
+        statusEl.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800";
+      } else if (evalItem.status === "flat") {
+        statusEl.textContent = "平置き・寝かせOK";
+        statusEl.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800";
+      } else {
+        statusEl.textContent = "干渉NG（収納不可）";
+        statusEl.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700";
+      }
+
+      const outerW = evalItem.fitsFlat ? prod.inner_w_mm : prod.inner_w_mm;
+      const outerH = evalItem.fitsFlat ? prod.inner_d_mm : prod.inner_h_mm;
+
+      const maxDim = Math.max(outerW, outerH, target.w, target.h, 1);
+      const scale = 152 / maxDim;
+
+      const drawOuterW = Math.max(24, outerW * scale);
+      const drawOuterH = Math.max(24, outerH * scale);
+      const drawInnerW = Math.max(16, target.w * scale);
+      const drawInnerH = Math.max(16, target.h * scale);
+
+      const cx = 160;
+      const cy = 108;
+      const ox = cx - drawOuterW / 2;
+      const oy = cy - drawOuterH / 2;
+      const ix = cx - drawInnerW / 2;
+      const iy = oy + drawOuterH - drawInnerH - (evalItem.fits ? Math.max(2, ((outerH - target.h) * scale) / 2) : 0);
+
+      const isNg = !evalItem.fits;
+      const innerFill = isNg ? "#fee2e2" : "#dbeafe";
+      const innerStroke = isNg ? "#dc2626" : "#2563eb";
+      const outerStroke = "#334155";
+
+      const wDiffLabel = evalItem.fitsFlat
+        ? `床面幅 ${outerW}mm`
+        : (evalItem.clearW >= 0 ? `横余裕 +${evalItem.clearW}mm` : `横超過 ${evalItem.clearW}mm`);
+      const hDiffLabel = evalItem.fitsFlat
+        ? `床面奥行 ${outerH}mm（平置き）`
+        : (evalItem.clearH >= 0 ? `縦余裕 +${evalItem.clearH}mm` : `縦干渉 ${evalItem.clearH}mm`);
+
+      svg.innerHTML = `
+        <defs>
+          <pattern id="grid-pat" width="16" height="16" patternUnits="userSpaceOnUse">
+            <path d="M 16 0 L 0 0 0 16" fill="none" stroke="#e2e8f0" stroke-width="0.8"/>
+          </pattern>
+        </defs>
+        <rect x="0" y="0" width="320" height="220" fill="url(#grid-pat)"/>
+        <rect x="${ox.toFixed(1)}" y="${oy.toFixed(1)}" width="${drawOuterW.toFixed(1)}" height="${drawOuterH.toFixed(1)}" rx="6" fill="#ffffff" stroke="${outerStroke}" stroke-width="2" stroke-dasharray="5 3"/>
+        <rect x="${ix.toFixed(1)}" y="${iy.toFixed(1)}" width="${drawInnerW.toFixed(1)}" height="${drawInnerH.toFixed(1)}" rx="4" fill="${innerFill}" fill-opacity="0.88" stroke="${innerStroke}" stroke-width="2"/>
+        <text x="${cx}" y="${Math.max(15, oy - 8).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">収納内寸 ${outerW} × ${outerH} mm</text>
+        <text x="${cx}" y="${(iy + drawInnerH / 2 + 4).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="${isNg ? '#991b1b' : '#1e40af'}">${target.w} × ${target.h} mm</text>
+        <text x="14" y="208" font-size="11" font-weight="600" fill="${evalItem.clearW < 0 && !evalItem.fitsFlat ? '#dc2626' : '#0f172a'}">${wDiffLabel}</text>
+        <text x="306" y="208" text-anchor="end" font-size="11" font-weight="600" fill="${evalItem.clearH < 0 && !evalItem.fitsFlat ? '#dc2626' : '#0f172a'}">${hDiffLabel}</text>
+      `;
+
+      if (evalItem.fitsUpright) {
+        capEl.textContent = `選択中の「${target.title}（${target.w}×${target.h}×厚${target.d}mm）」に対し、横 +${evalItem.clearW}mm・縦 +${evalItem.clearH}mm のクリアランスで真っ直ぐ収まります。`;
+      } else if (evalItem.fitsFlat) {
+        capEl.textContent = `内寸高 ${prod.inner_h_mm}mm のため縦置きでは ${Math.abs(evalItem.clearH).toFixed(1)}mm はみ出しますが、横寝かせ・平置きなら底面（${prod.inner_w_mm}×${prod.inner_d_mm}mm）に余裕で密閉保管できます。`;
+      } else {
+        const reasons = [];
+        if (evalItem.clearW < 0) reasons.push(`横幅が ${Math.abs(evalItem.clearW).toFixed(1)}mm`);
+        if (evalItem.clearH < 0) reasons.push(`高さが ${Math.abs(evalItem.clearH).toFixed(1)}mm`);
+        if (evalItem.clearD < 0) reasons.push(`厚みが ${Math.abs(evalItem.clearD).toFixed(1)}mm`);
+        capEl.textContent = `注意：${reasons.join("・")} オーバーするため収納できません（フタ閉鎖不良や折れの原因になります）。`;
+      }
+    }
+
+    function renderControls() {
+      // Category tabs
+      document.querySelectorAll(".cat-tab").forEach(btn => {
+        const active = btn.dataset.cat === state.category;
+        btn.className = active
+          ? "cat-tab py-2 px-2 rounded-lg text-xs font-bold transition bg-white text-slate-900 shadow-sm"
+          : "cat-tab py-2 px-2 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900";
+      });
+
+      const presetZone = document.getElementById("preset-controls");
+      const customZone = document.getElementById("custom-controls");
+
+      if (state.category === "custom") {
+        presetZone.classList.add("hidden");
+        customZone.classList.remove("hidden");
+      } else {
+        presetZone.classList.remove("hidden");
+        customZone.classList.add("hidden");
+
+        const catPresets = dataset.item_presets.filter(p => p.category === state.category);
+        if (!catPresets.some(p => p.id === state.itemId) && catPresets[0]) {
+          state.itemId = catPresets[0].id;
+          state.protId = catPresets[0].protections[0].id;
+          state.quantity = catPresets[0].default_qty;
+        }
+
+        const currentPreset = getCurrentPreset();
+        if (!currentPreset.protections.some(pr => pr.id === state.protId) && currentPreset.protections[0]) {
+          state.protId = currentPreset.protections[0].id;
+        }
+
+        const itemContainer = document.getElementById("item-pills");
+        itemContainer.innerHTML = catPresets.map(p => {
+          const active = p.id === state.itemId;
+          return `<button type="button" data-item="${escapeHtml(p.id)}" class="item-pill text-left px-3 py-2.5 rounded-xl border text-xs font-bold transition ${
+            active
+              ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-sm"
+              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          }">${escapeHtml(p.short_name)}</button>`;
+        }).join("");
+
+        const protContainer = document.getElementById("protection-pills");
+        protContainer.innerHTML = currentPreset.protections.map(pr => {
+          const active = pr.id === state.protId;
+          return `<button type="button" data-prot="${escapeHtml(pr.id)}" class="prot-pill px-3 py-1.5 rounded-full border text-xs font-semibold transition ${
+            active
+              ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+              : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+          }">${escapeHtml(pr.label)}</button>`;
+        }).join("");
+
+        const slQty = document.getElementById("sl-quantity");
+        slQty.max = String(currentPreset.max_qty || 1000);
+        if (state.quantity > (currentPreset.max_qty || 1000)) {
+          state.quantity = currentPreset.max_qty || 100;
+        }
+        slQty.value = String(state.quantity);
+      }
+
+      document.querySelectorAll(".purpose-btn").forEach(btn => {
+        const active = btn.dataset.purpose === state.purpose;
+        btn.className = active
+          ? "purpose-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-900 text-white transition"
+          : "purpose-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition";
+      });
+    }
+
+    function renderAll() {
+      renderControls();
+
+      const target = getTargetOuterDimensions();
+      document.getElementById("current-outer-badge").textContent =
+        `外寸 ${target.w.toFixed(1)} × ${target.h.toFixed(1)} × ${target.d.toFixed(2)} mm`;
+      document.getElementById("lbl-quantity").textContent = `${state.quantity} ${target.unit}`;
+      document.getElementById("lbl-custom-w").textContent = `${state.customW} mm`;
+      document.getElementById("lbl-custom-h").textContent = `${state.customH} mm`;
+      document.getElementById("lbl-custom-d").textContent = `${state.customD} mm`;
+
+      let candidates = dataset.storage_products.filter(prod => {
+        if (state.purpose !== "all" && prod.storage_type !== state.purpose) return false;
+        return true;
+      });
+
+      let evaluations = candidates.map(prod => evaluateProductFit(prod, target, state.quantity));
+      if (!state.showNg) {
+        evaluations = evaluations.filter(ev => ev.fits);
+      }
+
+      evaluations.sort((a, b) => b.score - a.score);
+
+      const fitCount = evaluations.filter(e => e.fits).length;
+      document.getElementById("result-summary").textContent =
+        `「${target.title}」× ${state.quantity}${target.unit} の判定：適合 ${fitCount} 件 / 比較対象 ${evaluations.length} 件`;
+
+      // Choose inspected product for 2D SVG blueprint
+      let inspected = evaluations.find(e => e.product.id === state.inspectedProductId);
+      if (!inspected) {
+        inspected = evaluations[0] || null;
+        state.inspectedProductId = inspected ? inspected.product.id : null;
+      }
+      renderBlueprint(inspected, target);
+
+      const listEl = document.getElementById("results-list");
+      if (evaluations.length === 0) {
+        listEl.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 text-center space-y-2">
+            <p class="text-sm font-bold text-slate-800">条件に一致する収納アイテムが見つかりませんでした</p>
+            <p class="text-xs text-slate-500">「収納スタイル絞り込み」を「すべて」に戻すか、サイズ条件を調整してください。</p>
+          </div>
+        `;
+        return;
+      }
+
+      let fitRank = 0;
+      listEl.innerHTML = evaluations.map(ev => {
+        const p = ev.product;
+        if (ev.fits) fitRank += 1;
+        const isTop = ev.fits && fitRank === 1;
+        const isSelected = state.inspectedProductId === p.id;
+
+        let badgeClass = "bg-slate-100 text-slate-700";
+        if (ev.status === "perfect") badgeClass = "bg-emerald-100 text-emerald-800";
+        else if (ev.status === "good") badgeClass = "bg-blue-100 text-blue-800";
+        else if (ev.status === "flat") badgeClass = "bg-amber-100 text-amber-800";
+        else if (ev.status === "ng") badgeClass = "bg-red-100 text-red-700";
+
+        const borderClass = isTop
+          ? "border-2 border-blue-600 shadow-md"
+          : (!ev.fits ? "border border-red-200 bg-red-50/20" : "border border-slate-200 shadow-sm");
+
+        const clearanceSummary = ev.fitsUpright
+          ? `内寸 ${p.inner_w_mm}×${p.inner_h_mm}mm（余裕：横 +${ev.clearW}mm / 縦 +${ev.clearH}mm）`
+          : ev.fitsFlat
+            ? `内寸 ${p.inner_w_mm}×奥行${p.inner_d_mm}×高${p.inner_h_mm}mm（平置き・横寝かせ適合）`
+            : `内寸 ${p.inner_w_mm}×${p.inner_h_mm}×厚${p.inner_d_mm}mm（${ev.clearW < 0 ? `横 ${ev.clearW}mm ` : ""}${ev.clearH < 0 ? `縦 ${ev.clearH}mm ` : ""}${ev.clearD < 0 ? `厚み ${ev.clearD}mm ` : ""}干渉）`;
+
+        const qtyGuide = ev.fits
+          ? `${state.quantity}${target.unit}なら <strong class="text-slate-900">${ev.unitsNeeded}点</strong> で収納可能（1点あたり最大目安 ${ev.maxItemsPerUnit}${target.unit}）`
+          : `サイズ干渉のため収納不可（購入注意）`;
+
+        const amzUrl = buildAmazonUrl(p.amazon_keyword || `${p.brand} ${p.name}`);
+        const rakUrl = buildRakutenUrl(p.rakuten_keyword || `${p.brand} ${p.name}`);
+
+        return `
+          <article class="bg-white rounded-2xl p-4 sm:p-5 transition ${borderClass}">
+            <div class="flex items-start justify-between gap-2">
+              <div class="space-y-1">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  ${isTop ? `<span class="bg-blue-600 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">ベストマッチ 1位</span>` : ""}
+                  <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full ${badgeClass}">${escapeHtml(ev.badgeText)}</span>
+                  <span class="text-xs font-semibold text-slate-500">${escapeHtml(p.brand)}</span>
+                </div>
+                <h3 class="text-sm sm:text-base font-bold text-slate-900 leading-snug">${escapeHtml(p.name)}</h3>
+              </div>
+              <button type="button" data-inspect="${escapeHtml(p.id)}" class="inspect-btn shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                isSelected
+                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                  : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }">図面表示</button>
+            </div>
+
+            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-slate-50 rounded-xl p-3 border border-slate-100 tabular-nums">
+              <div>
+                <span class="text-slate-500 block text-[11px]">実寸クリアランス判定</span>
+                <span class="font-semibold ${!ev.fits ? 'text-red-700' : 'text-slate-800'}">${escapeHtml(clearanceSummary)}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[11px]">必要数の自動計算 ＆ 参考仕様</span>
+                <span class="text-slate-700">${qtyGuide}</span>
+              </div>
+            </div>
+
+            <ul class="mt-2.5 flex flex-wrap gap-1.5">
+              ${(p.features || []).map(f => `<li class="text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">${escapeHtml(f)}</li>`).join("")}
+              <li class="text-[11px] text-slate-500 px-1 py-0.5">${escapeHtml(p.msrp_note || "")}</li>
+            </ul>
+
+            <div class="mt-3.5 pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <a href="${escapeHtml(amzUrl)}" target="_blank" rel="sponsored noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs transition shadow-sm">
+                <span>Amazonで価格・在庫を見る</span>
+              </a>
+              <a href="${escapeHtml(rakUrl)}" target="_blank" rel="sponsored noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow-sm">
+                <span>楽天市場で探す</span>
+              </a>
+              <a href="${escapeHtml(p.official_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs transition">
+                <span>公式・仕様詳細</span>
+              </a>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById("app-toast");
+      document.getElementById("app-toast-text").textContent = msg;
+      toast.classList.remove("hidden");
+      toast.classList.add("flex");
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add("hidden");
+        toast.classList.remove("flex");
+      }, 2600);
+    }
+
+    function copyTextSafe(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast("診断サマリーをクリップボードにコピーしました");
+        }).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        showToast("診断サマリーをクリップボードにコピーしました");
+      } catch (e) {
+        showToast("コピーに失敗しました");
+      }
+      document.body.removeChild(ta);
+    }
+
+    function setupEvents() {
+      // Category switcher
+      document.querySelectorAll(".cat-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.category = btn.dataset.cat;
+          state.inspectedProductId = null;
+          renderAll();
+        });
+      });
+
+      // Delegated item & protection pills
+      document.getElementById("item-pills").addEventListener("click", e => {
+        const btn = e.target.closest(".item-pill");
+        if (!btn) return;
+        state.itemId = btn.dataset.item;
+        const preset = getCurrentPreset();
+        if (preset && preset.protections[0]) {
+          state.protId = preset.protections[0].id;
+          state.quantity = preset.default_qty || 50;
+        }
+        state.inspectedProductId = null;
+        renderAll();
+      });
+
+      document.getElementById("protection-pills").addEventListener("click", e => {
+        const btn = e.target.closest(".prot-pill");
+        if (!btn) return;
+        state.protId = btn.dataset.prot;
+        state.inspectedProductId = null;
+        renderAll();
+      });
+
+      // Custom dimension sliders
+      document.getElementById("sl-custom-w").addEventListener("input", e => {
+        state.customW = parseFloat(e.target.value);
+        renderAll();
+      });
+      document.getElementById("sl-custom-h").addEventListener("input", e => {
+        state.customH = parseFloat(e.target.value);
+        renderAll();
+      });
+      document.getElementById("sl-custom-d").addEventListener("input", e => {
+        state.customD = parseFloat(e.target.value);
+        renderAll();
+      });
+
+      // Quantity slider
+      document.getElementById("sl-quantity").addEventListener("input", e => {
+        state.quantity = parseInt(e.target.value, 10) || 1;
+        renderAll();
+      });
+
+      // Purpose filter
+      document.getElementById("purpose-pills").addEventListener("click", e => {
+        const btn = e.target.closest(".purpose-btn");
+        if (!btn) return;
+        state.purpose = btn.dataset.purpose;
+        state.inspectedProductId = null;
+        renderAll();
+      });
+
+      // NG warning toggle
+      document.getElementById("chk-show-ng").addEventListener("change", e => {
+        state.showNg = e.target.checked;
+        renderAll();
+      });
+
+      // Inspect button on result cards
+      document.getElementById("results-list").addEventListener("click", e => {
+        const btn = e.target.closest(".inspect-btn");
+        if (!btn) return;
+        state.inspectedProductId = btn.dataset.inspect;
+        renderAll();
+      });
+
+      // Share diagnosis summary
+      document.getElementById("btn-share-result").addEventListener("click", () => {
+        const target = getTargetOuterDimensions();
+        const best = dataset.storage_products
+          .map(p => evaluateProductFit(p, target, state.quantity))
+          .filter(ev => ev.fits)
+          .sort((a, b) => b.score - a.score)[0];
+        const query = `?cat=${encodeURIComponent(state.category)}&item=${encodeURIComponent(state.itemId)}&prot=${encodeURIComponent(state.protId)}&qty=${state.quantity}`;
+        const summary = best
+          ? `【実寸収納判定】${target.title}（${target.w}×${target.h}mm）×${state.quantity}${target.unit} → ベストマッチは「${best.product.brand} ${best.product.name}」（${best.badgeText}・必要数${best.unitsNeeded}点） ${query}`
+          : `【実寸収納判定】${target.title}（${target.w}×${target.h}mm） ${query}`;
+        copyTextSafe(summary);
+      });
+
+      // Download products.json
+      document.getElementById("btn-export-json").addEventListener("click", () => {
+        const blob = new Blob([JSON.stringify(dataset, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "products.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast("products.json をダウンロードしました");
+      });
+
+      // Admin Modal open/close/apply
+      const modal = document.getElementById("admin-modal");
+      const errEl = document.getElementById("json-error-msg");
+
+      function openAdmin() {
+        document.getElementById("in-amz-tag").value = state.amazonTag;
+        document.getElementById("in-rakuten-id").value = state.rakutenId;
+        document.getElementById("ta-json-editor").value = JSON.stringify(dataset, null, 2);
+        errEl.classList.add("hidden");
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      }
+
+      function closeAdmin() {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+      }
+
+      document.getElementById("btn-open-admin").addEventListener("click", openAdmin);
+      document.getElementById("btn-close-admin").addEventListener("click", closeAdmin);
+      document.getElementById("btn-cancel-admin").addEventListener("click", closeAdmin);
+
+      document.getElementById("btn-reset-json").addEventListener("click", () => {
+        document.getElementById("ta-json-editor").value = JSON.stringify(INITIAL_DATASET, null, 2);
+        errEl.classList.add("hidden");
+      });
+
+      document.getElementById("btn-apply-admin").addEventListener("click", () => {
+        const raw = document.getElementById("ta-json-editor").value;
+        try {
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed.item_presets) || !Array.isArray(parsed.storage_products)) {
+            throw new Error("item_presets と storage_products の配列が必要です");
+          }
+          dataset = parsed;
+          state.amazonTag = document.getElementById("in-amz-tag").value.trim();
+          state.rakutenId = document.getElementById("in-rakuten-id").value.trim();
+          try {
+            localStorage.setItem("pitashu_amz_tag", state.amazonTag);
+            localStorage.setItem("pitashu_rak_id", state.rakutenId);
+          } catch (e) {
+            // Ignore storage errors
+          }
+          closeAdmin();
+          renderAll();
+          showToast("アフィリエイトIDとJSONマスタを更新しました");
+        } catch (err) {
+          errEl.textContent = `JSON構文エラー: ${err.message}`;
+          errEl.classList.remove("hidden");
+        }
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadSavedSettings();
+      setupEvents();
+      renderAll();
+      if (window.lucide && typeof window.lucide.createIcons === "function") {
+        window.lucide.createIcons();
+      }
+      loadLatestDataset();
+    });
+
+    // 自動更新される products.json を読み込み、埋め込みデータ（INITIAL_DATASET）と差し替える。
+    // 読めない場合（file:// で開いた・通信失敗など）は埋め込みデータのまま表示を続ける。
+    async function loadLatestDataset() {
+      try {
+        const res = await fetch("products.json", { cache: "no-cache" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const latest = await res.json();
+        if (!Array.isArray(latest.item_presets) || !Array.isArray(latest.storage_products)) {
+          throw new Error("item_presets と storage_products の配列がありません");
+        }
+        dataset = latest;
+        renderAll();
+        if (window.lucide && typeof window.lucide.createIcons === "function") {
+          window.lucide.createIcons();
+        }
+      } catch (e) {
+        console.warn("products.json を読み込めなかったため、埋め込みデータで表示します:", e);
+      }
+    }
+  </script>
+</body>
+</html>
